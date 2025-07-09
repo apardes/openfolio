@@ -106,13 +106,19 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> with SingleTicker
                   borderRadius: 14,
                 ),
                 const SizedBox(width: 8),
-                Text(token.name),
+                Flexible(
+                  child: Text(
+                    token.name,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
                 if (token.exchange != null) ...[
                   const SizedBox(width: 8),
                   Text(
                     '(${token.exchange})',
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       color: AppTheme.muted,
+                      fontSize: 12,
                     ),
                   ),
                 ],
@@ -610,11 +616,32 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> with SingleTicker
                                       style: Theme.of(context).textTheme.labelSmall,
                                     ),
                                     const SizedBox(height: 8),
-                                    Text(
-                                      PriceFormatter.formatHoldings(token.holdings!),
-                                      style: Theme.of(context).textTheme.displayLarge?.copyWith(
-                                        fontSize: 36,
-                                      ),
+                                    // Calculate dynamic font size based on holding length
+                                    LayoutBuilder(
+                                      builder: (context, constraints) {
+                                        final holdingsText = PriceFormatter.formatHoldings(token.holdings!);
+                                        double fontSize = 24;
+                                        
+                                        // Reduce font size for longer values
+                                        if (holdingsText.length > 15) {
+                                          fontSize = 18;
+                                        } else if (holdingsText.length > 12) {
+                                          fontSize = 20;
+                                        } else if (holdingsText.length > 10) {
+                                          fontSize = 22;
+                                        }
+                                        
+                                        return FittedBox(
+                                          fit: BoxFit.scaleDown,
+                                          child: Text(
+                                            holdingsText,
+                                            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                                              fontSize: fontSize,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                        );
+                                      },
                                     ),
                                     Text(
                                       token.symbol,
@@ -637,11 +664,16 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> with SingleTicker
                                             color: AppTheme.muted,
                                           ),
                                         ),
-                                        Text(
-                                          PriceFormatter.formatPrice(token.totalValue),
-                                          style: Theme.of(context).textTheme.displaySmall?.copyWith(
-                                            color: AppTheme.success,
-                                            fontWeight: FontWeight.w600,
+                                        Flexible(
+                                          child: FittedBox(
+                                            fit: BoxFit.scaleDown,
+                                            child: Text(
+                                              PriceFormatter.formatPrice(token.totalValue),
+                                              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                                                color: AppTheme.success,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
                                           ),
                                         ),
                                       ],
@@ -656,10 +688,15 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> with SingleTicker
                                             color: AppTheme.muted,
                                           ),
                                         ),
-                                        Text(
-                                          PriceFormatter.formatPrice(token.currentPrice),
-                                          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                                            fontWeight: FontWeight.w600,
+                                        Flexible(
+                                          child: FittedBox(
+                                            fit: BoxFit.scaleDown,
+                                            child: Text(
+                                              PriceFormatter.formatPrice(token.currentPrice),
+                                              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
                                           ),
                                         ),
                                       ],
