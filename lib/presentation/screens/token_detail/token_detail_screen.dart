@@ -178,6 +178,7 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> with SingleTicker
               Expanded(
                 child: TabBarView(
                   controller: _tabController,
+                  physics: const NeverScrollableScrollPhysics(), // Disable swipe navigation
                   children: [
                     // Details Tab
                     ListView(
