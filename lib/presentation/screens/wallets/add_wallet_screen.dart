@@ -20,9 +20,9 @@ class _AddWalletScreenState extends State<AddWalletScreen> {
   bool _isLoading = false;
 
   final List<Map<String, dynamic>> _chains = [
-    {'id': 'BTC', 'name': 'Bitcoin', 'icon': Icons.currency_bitcoin, 'color': Color(0xFFF7931A)},
-    {'id': 'ETH', 'name': 'Ethereum', 'icon': Icons.diamond_outlined, 'color': Color(0xFF627EEA)},
-    {'id': 'SOL', 'name': 'Solana', 'icon': Icons.circle, 'color': Color(0xFF9945FF)},
+    {'id': 'BTC', 'name': 'Bitcoin', 'color': Color(0xFFF7931A)},
+    {'id': 'ETH', 'name': 'Ethereum', 'color': Color(0xFF627EEA)},
+    {'id': 'SOL', 'name': 'Solana', 'color': Color(0xFF9945FF)},
   ];
 
   @override
@@ -54,11 +54,12 @@ class _AddWalletScreenState extends State<AddWalletScreen> {
       await context.read<WalletProvider>().addWallet(
         address,
         _selectedChain,
-        name: _nameController.text.trim().isEmpty ? null : _nameController.text.trim(),
+        name: _nameController.text.trim().isEmpty 
+            ? null 
+            : _nameController.text.trim(),
       );
-
       if (mounted) {
-        Navigator.of(context).pop();
+        Navigator.pop(context);
       }
     } catch (e) {
       if (mounted) {
@@ -78,21 +79,23 @@ class _AddWalletScreenState extends State<AddWalletScreen> {
     return Scaffold(
       backgroundColor: AppTheme.background,
       appBar: AppBar(
-        title: const Text('Add Wallet'),
         backgroundColor: AppTheme.background,
-        centerTitle: false,
+        title: const Text('Add Wallet'),
         titleTextStyle: Theme.of(context).textTheme.displayMedium?.copyWith(
-          fontSize: 24,
-          fontWeight: FontWeight.w300,
-          letterSpacing: 0.5,
+          fontSize: 20,
+          fontWeight: FontWeight.w500,
+        ),
+        leading: IconButton(
+          icon: const Icon(Icons.close),
+          onPressed: () => Navigator.pop(context),
         ),
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Chain selector
+            // Chain selection
             Text(
               'Select Chain',
               style: Theme.of(context).textTheme.bodyLarge?.copyWith(
@@ -106,13 +109,16 @@ class _AddWalletScreenState extends State<AddWalletScreen> {
                 return Expanded(
                   child: Padding(
                     padding: EdgeInsets.only(
-                      right: chain != _chains.last ? 8 : 0,
+                      right: chain != _chains.last ? 12 : 0,
                     ),
                     child: GestureDetector(
                       onTap: () {
-                        setState(() => _selectedChain = chain['id']);
+                        setState(() {
+                          _selectedChain = chain['id'] as String;
+                        });
                       },
-                      child: Container(
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
                         padding: const EdgeInsets.symmetric(vertical: 16),
                         decoration: BoxDecoration(
                           color: isSelected
@@ -126,22 +132,14 @@ class _AddWalletScreenState extends State<AddWalletScreen> {
                             width: isSelected ? 2 : 1,
                           ),
                         ),
-                        child: Column(
-                          children: [
-                            Icon(
-                              chain['icon'] as IconData,
-                              color: chain['color'] as Color,
-                              size: 28,
+                        child: Center(
+                          child: Text(
+                            chain['name'] as String,
+                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                              color: isSelected ? chain['color'] as Color : AppTheme.muted,
                             ),
-                            const SizedBox(height: 8),
-                            Text(
-                              chain['name'] as String,
-                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-                                color: isSelected ? chain['color'] as Color : AppTheme.muted,
-                              ),
-                            ),
-                          ],
+                          ),
                         ),
                       ),
                     ),
