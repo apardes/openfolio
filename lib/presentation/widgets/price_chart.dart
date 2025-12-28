@@ -309,47 +309,31 @@ class PriceChart extends StatelessWidget {
   }
   
   List<PricePoint> _getPriceDataForRange() {
-    //print('Getting price data for range: $timeRange');
-    //print('Token has hourly data: ${token.hourlyPriceHistory?.length ?? 0} points');
-    //print('Token has daily data: ${token.dailyPriceHistory?.length ?? 0} points');
-    
     switch (timeRange) {
       case ChartTimeRange.day:
-        // Use hourly data for 1D view
+        // Use 24h hourly data
         final hourlyData = token.hourlyPriceHistory ?? [];
-        //print('Returning ${hourlyData.length} hourly data points for 1D view');
         return hourlyData;
         
       case ChartTimeRange.week:
-        // Use daily data, filter last 7 days
-        final daily = token.dailyPriceHistory ?? [];
-        if (daily.isEmpty) {
-          print('No daily data available for 7D view');
-          return [];
-        }
-        
-        final cutoff = DateTime.now().subtract(const Duration(days: 7));
-        final filtered = daily.where((p) => p.timestamp.isAfter(cutoff)).toList();
-        //print('Filtered to ${filtered.length} data points for 7D view');
-        return filtered;
+        // Use 7d hourly data (NEW!)
+        final sevenDayData = token.sevenDayPriceHistory ?? [];
+        return sevenDayData;
         
       case ChartTimeRange.month:
         // Use daily data, filter last 30 days
         final daily = token.dailyPriceHistory ?? [];
         if (daily.isEmpty) {
-          print('No daily data available for 30D view');
           return [];
         }
         
         final cutoff = DateTime.now().subtract(const Duration(days: 30));
         final filtered = daily.where((p) => p.timestamp.isAfter(cutoff)).toList();
-        //print('Filtered to ${filtered.length} data points for 30D view');
         return filtered;
         
       case ChartTimeRange.all:
         // Use all daily data
         final daily = token.dailyPriceHistory ?? [];
-        //print('Returning all ${daily.length} daily data points for All view');
         return daily;
     }
   }
@@ -380,31 +364,27 @@ class PriceChart extends StatelessWidget {
   double _getMinY(List<PricePoint> data) {
     if (data.isEmpty) return 0;
     final min = _getMinPrice(data);
-    // If min and max are the same, create some padding
     final max = _getMaxPrice(data);
     if (min == max) {
-      // For very small values, ensure we don't go negative
       if (min < 0.000001) {
         return 0;
       }
-      return min * 0.95; // 5% below
+      return min * 0.95;
     }
-    return min * 0.98; // Add 2% padding
+    return min * 0.98;
   }
   
   double _getMaxY(List<PricePoint> data) {
     if (data.isEmpty) return 1;
     final max = _getMaxPrice(data);
-    // If min and max are the same, create some padding
     final min = _getMinPrice(data);
     if (min == max) {
-      // For very small values, ensure we have a reasonable max
       if (max < 0.000001) {
         return 0.000001;
       }
-      return max * 1.05; // 5% above
+      return max * 1.05;
     }
-    return max * 1.02; // Add 2% padding
+    return max * 1.02;
   }
   
   double _getHorizontalInterval(List<PricePoint> data) {
@@ -414,25 +394,26 @@ class PriceChart extends StatelessWidget {
     final maxY = _getMaxY(data);
     final range = maxY - minY;
     
-    // If range is 0 or very small, calculate interval based on the price magnitude
     if (range < 0.0000000001) {
-      // For very small or zero range, use the max price to determine scale
       final maxPrice = _getMaxPrice(data);
       if (maxPrice < 0.0000000001) {
-        // For extremely small prices, use a fixed small interval
         return 0.0000000001;
       }
-      // Use 20% of the max price as interval
       return maxPrice * 0.2;
     }
     
-    // Normal case: divide range by 5 for 5 grid lines
     return range / 5;
   }
   
   double _getTimeInterval(List<PricePoint> data) {
     if (data.isEmpty) return 1;
-    // Show 5-6 time labels
+    
+    // For hourly data (1D and 7D), show more labels
+    if (timeRange == ChartTimeRange.day || timeRange == ChartTimeRange.week) {
+      return (data.length / 6).ceilToDouble().clamp(1, data.length.toDouble());
+    }
+    
+    // For daily data (30D and All), show fewer labels
     return (data.length / 5).ceilToDouble().clamp(1, data.length.toDouble());
   }
   
@@ -448,7 +429,6 @@ class PriceChart extends StatelessWidget {
     } else if (price >= 0.000001) {
       return '\$${price.toStringAsFixed(8)}';
     } else if (price > 0) {
-      // For extremely small prices, use scientific notation
       return '\$${price.toStringAsExponential(2)}';
     } else {
       return '\$0.00';
@@ -460,7 +440,18 @@ class PriceChart extends StatelessWidget {
       case ChartTimeRange.day:
         return DateFormat('HH:mm').format(date);
       case ChartTimeRange.week:
-        return DateFormat('EEE').format(date);
+        // For 7D hourly data, show day and hour
+        final now = DateTime.now();
+        final diff = now.difference(date).inDays;
+        if (diff == 0) {
+          return DateFormat('HH:mm').format(date);
+        } else if (diff == 1) {
+          return 'Yesterday';
+        } else if (diff < 7) {
+          return DateFormat('EEE HH:mm').format(date);
+        } else {
+          return DateFormat('MMM d').format(date);
+        }
       case ChartTimeRange.month:
         return DateFormat('MMM d').format(date);
       case ChartTimeRange.all:
@@ -473,6 +464,8 @@ class PriceChart extends StatelessWidget {
       case ChartTimeRange.day:
         return DateFormat('MMM d, HH:mm').format(date);
       case ChartTimeRange.week:
+        // For 7D hourly data, show full date and time
+        return DateFormat('EEE, MMM d, HH:mm').format(date);
       case ChartTimeRange.month:
         return DateFormat('EEE, MMM d').format(date);
       case ChartTimeRange.all:

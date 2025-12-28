@@ -13,8 +13,9 @@ class Token {
   final double? marketCap;
   final double? volume24h;
   final double? volumeChange24h;
-  final List<PricePoint>? hourlyPriceHistory;
-  final List<PricePoint>? dailyPriceHistory;
+  final List<PricePoint>? hourlyPriceHistory;      // 24h data
+  final List<PricePoint>? sevenDayPriceHistory;   // 7d hourly data
+  final List<PricePoint>? dailyPriceHistory;      // All-time daily data
 
   Token({
     required this.id,
@@ -30,6 +31,7 @@ class Token {
     this.volume24h,
     this.volumeChange24h,
     this.hourlyPriceHistory,
+    this.sevenDayPriceHistory,
     this.dailyPriceHistory,
   });
 
@@ -41,7 +43,7 @@ class Token {
     final previousPrice = percentChange != 0 ? price / (1 + (percentChange / 100)) : price;
     final priceChange = price - previousPrice;
     
-    // Parse hourly price history (24h_price_history)
+    // Parse 24h hourly price history
     List<PricePoint>? hourlyHistory;
     if (json['24h_price_history'] != null) {
       hourlyHistory = (json['24h_price_history'] as List)
@@ -50,6 +52,26 @@ class Token {
                     ((point[0] as num) * 1000).toInt()),
                 price: (point[1] as num).toDouble(),
               ))
+          .toList();
+    }
+    
+    // Parse 7d hourly price history (NEW FORMAT)
+    List<PricePoint>? sevenDayHistory;
+    if (json['7d_price_history'] != null) {
+      sevenDayHistory = (json['7d_price_history'] as List)
+          .map((point) {
+            try {
+              return PricePoint(
+                timestamp: DateTime.parse(point[0] as String),
+                price: (point[1] as num).toDouble(),
+              );
+            } catch (e) {
+              print('Error parsing 7d price point: $point, error: $e');
+              return null;
+            }
+          })
+          .where((point) => point != null)
+          .cast<PricePoint>()
           .toList();
     }
     
@@ -64,7 +86,7 @@ class Token {
                 price: (point[1] as num).toDouble(),
               );
             } catch (e) {
-              print('Error parsing price point: $point, error: $e');
+              print('Error parsing daily price point: $point, error: $e');
               return null;
             }
           })
@@ -74,7 +96,7 @@ class Token {
     }
     
     return Token(
-      id: json['token_id'] ?? json['id'],
+      id: json['id'] ?? json['token_id'],
       symbol: json['ticker'] ?? '',
       name: json['name'] ?? '',
       logo: json['logo'],
@@ -87,6 +109,7 @@ class Token {
       volume24h: (json['volume'] as num?)?.toDouble(),
       volumeChange24h: (json['volume_24h_change'] as num?)?.toDouble(),
       hourlyPriceHistory: hourlyHistory,
+      sevenDayPriceHistory: sevenDayHistory,
       dailyPriceHistory: dailyHistory,
     );
   }
@@ -96,6 +119,13 @@ class Token {
     List<PricePoint>? hourlyHistory;
     if (json['hourlyPriceHistory'] != null) {
       hourlyHistory = (json['hourlyPriceHistory'] as List)
+          .map((point) => PricePoint.fromJson(point))
+          .toList();
+    }
+    
+    List<PricePoint>? sevenDayHistory;
+    if (json['sevenDayPriceHistory'] != null) {
+      sevenDayHistory = (json['sevenDayPriceHistory'] as List)
           .map((point) => PricePoint.fromJson(point))
           .toList();
     }
@@ -121,6 +151,7 @@ class Token {
       volume24h: (json['volume24h'] as num?)?.toDouble(),
       volumeChange24h: (json['volumeChange24h'] as num?)?.toDouble(),
       hourlyPriceHistory: hourlyHistory,
+      sevenDayPriceHistory: sevenDayHistory,
       dailyPriceHistory: dailyHistory,
     );
   }
@@ -140,6 +171,7 @@ class Token {
       'volume24h': volume24h,
       'volumeChange24h': volumeChange24h,
       'hourlyPriceHistory': hourlyPriceHistory?.map((p) => p.toJson()).toList(),
+      'sevenDayPriceHistory': sevenDayPriceHistory?.map((p) => p.toJson()).toList(),
       'dailyPriceHistory': dailyPriceHistory?.map((p) => p.toJson()).toList(),
     };
   }
