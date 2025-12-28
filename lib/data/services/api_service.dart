@@ -98,6 +98,29 @@ class ApiService {
     }
   }
   
+  Future<Map<String, dynamic>?> getWalletBalance(String address, String chain) async {
+    try {
+      final response = await _dio.post(
+        ApiConfig.wallets,
+        data: {
+          'address': address,
+          'chain': chain,
+        },
+      );
+      
+      if (response.data is Map<String, dynamic>) {
+        return response.data;
+      }
+      
+      return null;
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 404) {
+        return null;
+      }
+      throw _handleError(e);
+    }
+  }
+  
   Exception _handleError(DioException error) {
     if (error.type == DioExceptionType.connectionTimeout) {
       return Exception('Connection timeout');

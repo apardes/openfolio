@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'core/theme/app_theme.dart';
 import 'presentation/providers/portfolio_provider.dart';
+import 'presentation/providers/wallet_provider.dart';
 import 'presentation/screens/portfolio/portfolio_screen.dart';
 
 void main() async {
@@ -33,6 +34,7 @@ class OpenfolioApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
+        ChangeNotifierProvider(create: (_) => WalletProvider()),
         ChangeNotifierProvider(create: (_) => PortfolioProvider()),
       ],
       child: MaterialApp(

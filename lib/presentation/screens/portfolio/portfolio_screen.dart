@@ -8,6 +8,7 @@ import '../../widgets/portfolio_header.dart';
 import '../../widgets/token_list_item.dart';
 import '../search/search_screen.dart';
 import '../token_detail/token_detail_screen.dart';
+import '../wallets/wallets_screen.dart';
 
 class PortfolioScreen extends StatelessWidget {
   const PortfolioScreen({super.key});
@@ -26,6 +27,18 @@ class PortfolioScreen extends StatelessWidget {
           letterSpacing: 0.5,
         ),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.account_balance_wallet_outlined, size: 24),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const WalletsScreen()),
+              ).then((_) {
+                // Refresh portfolio when returning from wallets
+                context.read<PortfolioProvider>().refreshPortfolio();
+              });
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.add, size: 24),
             onPressed: () {
@@ -172,19 +185,6 @@ class PortfolioScreen extends StatelessWidget {
                 // Watchlist Section
                 if (provider.watchlistTokens.isNotEmpty) ...[
                   SliverToBoxAdapter(
-                    child: Container(
-                      margin: const EdgeInsets.only(top: 8),
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                      child: Text(
-                        'WATCHLIST',
-                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          letterSpacing: 1.2,
-                          fontSize: 10,
-                        ),
-                      ),
-                    ),
-                  ),
-                  SliverToBoxAdapter(
                     child: _buildSectionHeader(
                       context,
                       showHoldings: false,
@@ -253,7 +253,7 @@ class PortfolioScreen extends StatelessWidget {
             child: Padding(
               padding: const EdgeInsets.only(right: 20),
               child: Text(
-                showHoldings ? 'Holdings' : '',
+                showHoldings ? 'Holdings' : 'Watchlist',
                 style: TextStyle(
                   fontSize: 10,
                   color: AppTheme.muted,
@@ -264,34 +264,17 @@ class PortfolioScreen extends StatelessWidget {
             ),
           ),
           
-          // Price column - aligned with body
+          // Price column - right aligned
           SizedBox(
-            width: 120,
-            child: Padding(
-              padding: const EdgeInsets.only(right: 12),
-              child: Text(
-                'Price',
-                style: TextStyle(
-                  fontSize: 10,
-                  color: AppTheme.muted,
-                  fontWeight: FontWeight.w500,
-                ),
-                textAlign: TextAlign.right,
-              ),
-            ),
-          ),
-          
-          // Alert label
-          SizedBox(
-            width: 48,
+            width: 80,
             child: Text(
-              'Alert',
+              'Price',
               style: TextStyle(
                 fontSize: 10,
                 color: AppTheme.muted,
                 fontWeight: FontWeight.w500,
               ),
-              textAlign: TextAlign.center,
+              textAlign: TextAlign.right,
             ),
           ),
         ],

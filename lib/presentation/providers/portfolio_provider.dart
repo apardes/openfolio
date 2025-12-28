@@ -4,9 +4,11 @@ import 'package:flutter/foundation.dart';
 import '../../data/models/portfolio_data.dart';
 import '../../data/models/token.dart';
 import '../../data/repositories/portfolio_repository.dart';
+import '../../data/repositories/wallet_repository.dart';
 
 class PortfolioProvider extends ChangeNotifier {
   final PortfolioRepository _repository = PortfolioRepository();
+  final WalletRepository _walletRepository = WalletRepository();
   
   PortfolioData? _portfolioData;
   bool _isLoading = false;
@@ -57,7 +59,11 @@ class PortfolioProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      _portfolioData = await _repository.getPortfolioData();
+      // First, get wallet holdings by token ID
+      final walletHoldings = await _getWalletHoldingsByTokenId();
+      
+      // Then get portfolio data with merged holdings
+      _portfolioData = await _repository.getPortfolioData(walletHoldings: walletHoldings);
       _isLoading = false;
       notifyListeners();
     } catch (e) {
@@ -69,12 +75,29 @@ class PortfolioProvider extends ChangeNotifier {
 
   Future<void> refreshPortfolio() async {
     try {
-      _portfolioData = await _repository.getPortfolioData();
+      // First, refresh wallet balances from API
+      await _walletRepository.refreshAllWalletBalances();
+      
+      // Then get wallet holdings by token ID
+      final walletHoldings = await _getWalletHoldingsByTokenId();
+      
+      // Then get portfolio data with merged holdings
+      _portfolioData = await _repository.getPortfolioData(walletHoldings: walletHoldings);
       _error = null;
       notifyListeners();
     } catch (e) {
       _error = e.toString();
       notifyListeners();
+    }
+  }
+  
+  /// Get aggregated wallet holdings by token ID
+  Future<Map<int, double>> _getWalletHoldingsByTokenId() async {
+    try {
+      return await _walletRepository.getWalletHoldingsByTokenId();
+    } catch (e) {
+      print('Error getting wallet holdings: $e');
+      return {};
     }
   }
 

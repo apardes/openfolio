@@ -8,6 +8,7 @@ class ApiConfig {
   // API Endpoints
   static const String tokenSearch = '/api/search/';
   static const String portfolio = '/api/portfolio/';
+  static const String wallets = '/api/wallets/';
   
   // Request headers
   static Map<String, String> get headers => {

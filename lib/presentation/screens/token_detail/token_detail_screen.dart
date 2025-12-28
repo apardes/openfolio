@@ -5,7 +5,9 @@ import 'package:provider/provider.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/price_formatter.dart';
 import '../../../data/models/token.dart';
+import '../../../data/models/wallet.dart';
 import '../../providers/portfolio_provider.dart';
+import '../../providers/wallet_provider.dart';
 import '../../widgets/price_chart.dart';
 import '../../widgets/crypto_logo.dart';
 import 'edit_holdings_dialog.dart';
@@ -36,7 +38,7 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> with SingleTicker
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 4, vsync: this);
   }
 
   @override
@@ -60,7 +62,7 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> with SingleTicker
         onDelete: () async {
           await context.read<PortfolioProvider>().removeToken(token.id);
           if (mounted) {
-            Navigator.of(context).pop(); // Close dialog only
+            Navigator.of(context).pop();
           }
         },
       ),
@@ -69,12 +71,11 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> with SingleTicker
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<PortfolioProvider>(
-      builder: (context, provider, child) {
-        final token = provider.getTokenById(widget.tokenId);
+    return Consumer2<PortfolioProvider, WalletProvider>(
+      builder: (context, portfolioProvider, walletProvider, child) {
+        final token = portfolioProvider.getTokenById(widget.tokenId);
         
         if (token == null) {
-          // Token has been deleted, pop back to portfolio
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (mounted && Navigator.of(context).canPop()) {
               Navigator.of(context).pop();
@@ -91,6 +92,9 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> with SingleTicker
 
         final isPositive = token.percentChange24h >= 0;
         final changeColor = isPositive ? AppTheme.success : AppTheme.error;
+        
+        // Get wallets for this token by token ID
+        final walletsForToken = walletProvider.getWalletsForToken(token.id);
 
         return Scaffold(
           backgroundColor: AppTheme.background,
@@ -112,16 +116,6 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> with SingleTicker
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                if (token.exchange != null) ...[
-                  const SizedBox(width: 8),
-                  Text(
-                    '(${token.exchange})',
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: AppTheme.muted,
-                      fontSize: 12,
-                    ),
-                  ),
-                ],
               ],
             ),
             actions: [
@@ -151,8 +145,7 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> with SingleTicker
                   );
                   
                   if (confirm == true && mounted) {
-                    await provider.removeToken(token.id);
-                    // Don't need to pop here as the Consumer will handle it
+                    await portfolioProvider.removeToken(token.id);
                   }
                 },
               ),
@@ -160,7 +153,6 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> with SingleTicker
           ),
           body: Column(
             children: [
-              // Tab Bar
               Container(
                 color: AppTheme.surface,
                 child: TabBar(
@@ -170,487 +162,19 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> with SingleTicker
                     Tab(text: 'Details'),
                     Tab(text: 'Alerts'),
                     Tab(text: 'Holdings'),
+                    Tab(text: 'Wallets'),
                   ],
                 ),
               ),
-              
-              // Tab Content
               Expanded(
                 child: TabBarView(
                   controller: _tabController,
-                  physics: const NeverScrollableScrollPhysics(), // Disable swipe navigation
+                  physics: const NeverScrollableScrollPhysics(),
                   children: [
-                    // Details Tab
-                    ListView(
-                      children: [
-                        // Price Header
-                        Container(
-                          padding: const EdgeInsets.all(16),
-                          color: AppTheme.surface,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                token.exchange ?? 'Global Average',
-                                style: Theme.of(context).textTheme.labelSmall,
-                              ),
-                              const SizedBox(height: 8),
-                              Row(
-                                crossAxisAlignment: CrossAxisAlignment.baseline,
-                                textBaseline: TextBaseline.alphabetic,
-                                children: [
-                                  Text(
-                                    PriceFormatter.formatPrice(token.currentPrice),
-                                    style: Theme.of(context).textTheme.displayLarge?.copyWith(
-                                      fontSize: 32,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 8,
-                                      vertical: 4,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: changeColor.withOpacity(0.1),
-                                      borderRadius: BorderRadius.circular(4),
-                                    ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Text(
-                                          PriceFormatter.formatPercentage(token.percentChange24h),
-                                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                            color: changeColor,
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                        ),
-                                        const SizedBox(width: 4),
-                                        Icon(
-                                          isPositive ? Icons.arrow_upward : Icons.arrow_downward,
-                                          color: changeColor,
-                                          size: 16,
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
-                        
-                        // Time Range Selector
-                        Container(
-                          height: 48,
-                          color: AppTheme.surface,
-                          child: ListView.builder(
-                            scrollDirection: Axis.horizontal,
-                            padding: const EdgeInsets.symmetric(horizontal: 16),
-                            itemCount: _timeRanges.length,
-                            itemBuilder: (context, index) {
-                              final range = _timeRanges.entries.elementAt(index);
-                              final isSelected = range.value == _selectedTimeRange;
-                              
-                              return Padding(
-                                padding: const EdgeInsets.only(right: 12),
-                                child: ChoiceChip(
-                                  label: Text(range.key),
-                                  selected: isSelected,
-                                  onSelected: (selected) {
-                                    setState(() {
-                                      _selectedTimeRange = range.value;
-                                    });
-                                  },
-                                  selectedColor: AppTheme.primary.withOpacity(0.2),
-                                  labelStyle: TextStyle(
-                                    color: isSelected ? AppTheme.primary : AppTheme.muted,
-                                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-                                  ),
-                                  backgroundColor: AppTheme.background,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(8),
-                                    side: BorderSide(
-                                      color: isSelected ? AppTheme.primary : AppTheme.muted.withOpacity(0.3),
-                                    ),
-                                  ),
-                                ),
-                              );
-                            },
-                          ),
-                        ),
-                        
-                        // Price Chart
-                        PriceChart(
-                          token: token,
-                          timeRange: _selectedTimeRange,
-                          height: 300,
-                        ),
-                        
-                        const SizedBox(height: 16),
-                        
-                        // Market Stats
-                        Container(
-                          padding: const EdgeInsets.all(16),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Market Stats',
-                                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                              const SizedBox(height: 16),
-                              Container(
-                                padding: const EdgeInsets.all(16),
-                                decoration: BoxDecoration(
-                                  color: AppTheme.surface,
-                                  borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(
-                                    color: AppTheme.muted.withOpacity(0.1),
-                                    width: 1,
-                                  ),
-                                ),
-                                child: Column(
-                                  children: [
-                                    // Market Cap
-                                    Row(
-                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        Row(
-                                          children: [
-                                            Icon(
-                                              Icons.trending_up,
-                                              size: 20,
-                                              color: AppTheme.muted,
-                                            ),
-                                            const SizedBox(width: 8),
-                                            Text(
-                                              'Market Cap',
-                                              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                                color: AppTheme.muted,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                        Text(
-                                          token.marketCap != null 
-                                              ? PriceFormatter.formatCompactPrice(token.marketCap!)
-                                              : 'N/A',
-                                          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 16),
-                                    Divider(
-                                      color: AppTheme.muted.withOpacity(0.1),
-                                      thickness: 1,
-                                    ),
-                                    const SizedBox(height: 16),
-                                    // 24h Volume
-                                    Row(
-                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        Row(
-                                          children: [
-                                            Icon(
-                                              Icons.bar_chart,
-                                              size: 20,
-                                              color: AppTheme.muted,
-                                            ),
-                                            const SizedBox(width: 8),
-                                            Text(
-                                              '24h Volume',
-                                              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                                color: AppTheme.muted,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                        Text(
-                                          token.volume24h != null 
-                                              ? PriceFormatter.formatCompactPrice(token.volume24h!)
-                                              : 'N/A',
-                                          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    if (token.volumeChange24h != null) ...[
-                                      const SizedBox(height: 16),
-                                      Divider(
-                                        color: AppTheme.muted.withOpacity(0.1),
-                                        thickness: 1,
-                                      ),
-                                      const SizedBox(height: 16),
-                                      // 24h Volume Change
-                                      Row(
-                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                        children: [
-                                          Row(
-                                            children: [
-                                              Icon(
-                                                Icons.change_history,
-                                                size: 20,
-                                                color: AppTheme.muted,
-                                              ),
-                                              const SizedBox(width: 8),
-                                              Text(
-                                                'Volume Change',
-                                                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                                  color: AppTheme.muted,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                          Row(
-                                            children: [
-                                              Text(
-                                                PriceFormatter.formatPercentage(token.volumeChange24h!),
-                                                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                                                  fontWeight: FontWeight.w600,
-                                                  color: token.volumeChange24h! >= 0 
-                                                      ? AppTheme.success 
-                                                      : AppTheme.error,
-                                                ),
-                                              ),
-                                              const SizedBox(width: 4),
-                                              Icon(
-                                                token.volumeChange24h! >= 0 
-                                                    ? Icons.arrow_upward 
-                                                    : Icons.arrow_downward,
-                                                color: token.volumeChange24h! >= 0 
-                                                    ? AppTheme.success 
-                                                    : AppTheme.error,
-                                                size: 16,
-                                              ),
-                                            ],
-                                          ),
-                                        ],
-                                      ),
-                                    ],
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        
-                        // Bottom padding
-                        const SizedBox(height: 80),
-                      ],
-                    ),
-                    
-                    // Alerts Tab - Placeholder
-                    Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.notifications_none,
-                            size: 64,
-                            color: AppTheme.muted,
-                          ),
-                          const SizedBox(height: 16),
-                          Text(
-                            'Price Alerts',
-                            style: Theme.of(context).textTheme.displayMedium,
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            'Get notified when ${token.symbol} reaches your target price',
-                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              color: AppTheme.muted,
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
-                          const SizedBox(height: 24),
-                          ElevatedButton.icon(
-                            onPressed: () {
-                              // TODO: Implement alerts
-                            },
-                            icon: const Icon(Icons.add),
-                            label: const Text('Create Alert'),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppTheme.surface,
-                              foregroundColor: AppTheme.primary,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    
-                    // Holdings Tab
-                    Center(
-                      child: Padding(
-                        padding: const EdgeInsets.all(24),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            if (token.holdings == null || token.holdings == 0) ...[
-                              Icon(
-                                Icons.account_balance_wallet_outlined,
-                                size: 64,
-                                color: AppTheme.muted,
-                              ),
-                              const SizedBox(height: 16),
-                              Text(
-                                'No holdings',
-                                style: Theme.of(context).textTheme.displayMedium,
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                'Add ${token.symbol} to your portfolio',
-                                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                  color: AppTheme.muted,
-                                ),
-                              ),
-                              const SizedBox(height: 24),
-                              ElevatedButton.icon(
-                                onPressed: () => _showEditHoldingsDialog(token),
-                                icon: const Icon(Icons.add),
-                                label: const Text('Add Holdings'),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: AppTheme.surface,
-                                  foregroundColor: AppTheme.primary,
-                                ),
-                              ),
-                            ] else ...[
-                              Container(
-                                padding: const EdgeInsets.all(24),
-                                decoration: BoxDecoration(
-                                  color: AppTheme.surface,
-                                  borderRadius: BorderRadius.circular(16),
-                                  border: Border.all(
-                                    color: AppTheme.primary.withOpacity(0.2),
-                                    width: 2,
-                                  ),
-                                ),
-                                child: Column(
-                                  children: [
-                                    Icon(
-                                      Icons.account_balance_wallet,
-                                      size: 48,
-                                      color: AppTheme.primary,
-                                    ),
-                                    const SizedBox(height: 16),
-                                    Text(
-                                      'Current Holdings',
-                                      style: Theme.of(context).textTheme.labelSmall,
-                                    ),
-                                    const SizedBox(height: 8),
-                                    // Calculate dynamic font size based on holding length
-                                    LayoutBuilder(
-                                      builder: (context, constraints) {
-                                        final holdingsText = PriceFormatter.formatHoldings(token.holdings!);
-                                        double fontSize = 24;
-                                        
-                                        // Reduce font size for longer values
-                                        if (holdingsText.length > 15) {
-                                          fontSize = 18;
-                                        } else if (holdingsText.length > 12) {
-                                          fontSize = 20;
-                                        } else if (holdingsText.length > 10) {
-                                          fontSize = 22;
-                                        }
-                                        
-                                        return FittedBox(
-                                          fit: BoxFit.scaleDown,
-                                          child: Text(
-                                            holdingsText,
-                                            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                                              fontSize: fontSize,
-                                              fontWeight: FontWeight.w600,
-                                            ),
-                                          ),
-                                        );
-                                      },
-                                    ),
-                                    Text(
-                                      token.symbol,
-                                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                                        color: AppTheme.muted,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 24),
-                                    Divider(
-                                      color: AppTheme.muted.withOpacity(0.2),
-                                    ),
-                                    const SizedBox(height: 24),
-                                    Row(
-                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        Text(
-                                          'Total Value',
-                                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                            color: AppTheme.muted,
-                                          ),
-                                        ),
-                                        Flexible(
-                                          child: FittedBox(
-                                            fit: BoxFit.scaleDown,
-                                            child: Text(
-                                              PriceFormatter.formatPrice(token.totalValue),
-                                              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                                                color: AppTheme.success,
-                                                fontWeight: FontWeight.w600,
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 12),
-                                    Row(
-                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        Text(
-                                          'Current Price',
-                                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                            color: AppTheme.muted,
-                                          ),
-                                        ),
-                                        Flexible(
-                                          child: FittedBox(
-                                            fit: BoxFit.scaleDown,
-                                            child: Text(
-                                              PriceFormatter.formatPrice(token.currentPrice),
-                                              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                                                fontWeight: FontWeight.w600,
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(height: 24),
-                              ElevatedButton.icon(
-                                onPressed: () => _showEditHoldingsDialog(token),
-                                icon: const Icon(Icons.edit),
-                                label: const Text('Edit Holdings'),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: AppTheme.primary,
-                                  foregroundColor: AppTheme.background,
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 24,
-                                    vertical: 12,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ],
-                        ),
-                      ),
-                    ),
+                    _buildDetailsTab(token, isPositive, changeColor),
+                    _buildAlertsTab(token),
+                    _buildHoldingsTab(token),
+                    _buildWalletsTab(token, walletsForToken),
                   ],
                 ),
               ),
@@ -659,5 +183,397 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> with SingleTicker
         );
       },
     );
+  }
+  
+  Widget _buildDetailsTab(Token token, bool isPositive, Color changeColor) {
+    return ListView(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(16),
+          color: AppTheme.surface,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                token.exchange ?? 'Portfolio',
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: AppTheme.muted,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    PriceFormatter.formatPrice(token.currentPrice),
+                    style: Theme.of(context).textTheme.displayLarge?.copyWith(
+                      fontSize: 32,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 4),
+                    child: Row(
+                      children: [
+                        Icon(
+                          isPositive ? Icons.arrow_upward : Icons.arrow_downward,
+                          color: changeColor,
+                          size: 16,
+                        ),
+                        Text(
+                          '${isPositive ? '+' : ''}${token.percentChange24h.toStringAsFixed(2)}%',
+                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            color: changeColor,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Wrap(
+            spacing: 8,
+            children: _timeRanges.entries.map((entry) {
+              final isSelected = _selectedTimeRange == entry.value;
+              return ChoiceChip(
+                label: Text(entry.key),
+                selected: isSelected,
+                onSelected: (selected) {
+                  if (selected) {
+                    setState(() => _selectedTimeRange = entry.value);
+                  }
+                },
+                selectedColor: AppTheme.primary.withOpacity(0.2),
+                labelStyle: TextStyle(
+                  color: isSelected ? AppTheme.primary : AppTheme.muted,
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                ),
+                backgroundColor: AppTheme.background,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  side: BorderSide(
+                    color: isSelected ? AppTheme.primary : AppTheme.muted.withOpacity(0.3),
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+        ),
+        PriceChart(
+          token: token,
+          timeRange: _selectedTimeRange,
+          height: 300,
+        ),
+        const SizedBox(height: 16),
+        Container(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Market Stats',
+                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: AppTheme.surface,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: AppTheme.muted.withOpacity(0.1),
+                    width: 1,
+                  ),
+                ),
+                child: Column(
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(Icons.trending_up, size: 20, color: AppTheme.muted),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Market Cap',
+                              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                color: AppTheme.muted,
+                              ),
+                            ),
+                          ],
+                        ),
+                        Text(
+                          token.marketCap != null 
+                              ? PriceFormatter.formatCompactPrice(token.marketCap!)
+                              : 'N/A',
+                          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (token.volume24h != null) ...[
+                      const SizedBox(height: 16),
+                      const Divider(height: 1),
+                      const SizedBox(height: 16),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(Icons.bar_chart, size: 20, color: AppTheme.muted),
+                              const SizedBox(width: 8),
+                              Text(
+                                '24h Volume',
+                                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                  color: AppTheme.muted,
+                                ),
+                              ),
+                            ],
+                          ),
+                          Text(
+                            PriceFormatter.formatCompactPrice(token.volume24h!),
+                            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 80),
+      ],
+    );
+  }
+  
+  Widget _buildAlertsTab(Token token) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.notifications_none, size: 64, color: AppTheme.muted),
+          const SizedBox(height: 16),
+          Text('Price Alerts', style: Theme.of(context).textTheme.displayMedium),
+          const SizedBox(height: 8),
+          Text(
+            'Get notified when ${token.symbol} reaches your target price',
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AppTheme.muted),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 24),
+          ElevatedButton.icon(
+            onPressed: () {},
+            icon: const Icon(Icons.add),
+            label: const Text('Create Alert'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.surface,
+              foregroundColor: AppTheme.primary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildHoldingsTab(Token token) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            if (token.holdings == null || token.holdings == 0) ...[
+              Icon(Icons.account_balance_wallet_outlined, size: 64, color: AppTheme.muted),
+              const SizedBox(height: 16),
+              Text('No holdings', style: Theme.of(context).textTheme.displayMedium),
+              const SizedBox(height: 8),
+              Text(
+                'Add ${token.symbol} to your portfolio',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AppTheme.muted),
+              ),
+              const SizedBox(height: 24),
+              ElevatedButton.icon(
+                onPressed: () => _showEditHoldingsDialog(token),
+                icon: const Icon(Icons.add),
+                label: const Text('Add Holdings'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.surface,
+                  foregroundColor: AppTheme.primary,
+                ),
+              ),
+            ] else ...[
+              Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: AppTheme.surface,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: AppTheme.primary.withOpacity(0.2), width: 2),
+                ),
+                child: Column(
+                  children: [
+                    Icon(Icons.account_balance_wallet, size: 48, color: AppTheme.primary),
+                    const SizedBox(height: 16),
+                    Text('Current Holdings', style: Theme.of(context).textTheme.labelSmall),
+                    const SizedBox(height: 8),
+                    Text(
+                      '${PriceFormatter.formatHoldings(token.holdings!)} ${token.symbol}',
+                      style: Theme.of(context).textTheme.displayLarge?.copyWith(
+                        fontSize: 28,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      PriceFormatter.formatPrice(token.totalValue),
+                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: AppTheme.muted),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 24),
+              ElevatedButton.icon(
+                onPressed: () => _showEditHoldingsDialog(token),
+                icon: const Icon(Icons.edit),
+                label: const Text('Edit Holdings'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.surface,
+                  foregroundColor: AppTheme.primary,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+  
+  Widget _buildWalletsTab(Token token, List<Wallet> walletsForToken) {
+    if (walletsForToken.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.account_balance_wallet_outlined, size: 64, color: AppTheme.muted),
+            const SizedBox(height: 16),
+            Text('No Wallets', style: Theme.of(context).textTheme.displayMedium),
+            const SizedBox(height: 8),
+            Text(
+              'No wallets holding ${token.symbol} are being tracked',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AppTheme.muted),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Add wallets from the main screen',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppTheme.muted),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      );
+    }
+    
+    return ListView.builder(
+      padding: const EdgeInsets.symmetric(vertical: 16),
+      itemCount: walletsForToken.length,
+      itemBuilder: (context, index) {
+        final wallet = walletsForToken[index];
+        
+        // Get balance for this token
+        double balance = 0;
+        if (wallet.tokenId == token.id) {
+          balance = wallet.totalNativeBalance;
+        } else {
+          final walletToken = wallet.tokens.where((t) => t.tokenId == token.id).firstOrNull;
+          if (walletToken != null) {
+            balance = walletToken.balance;
+          }
+        }
+        
+        return Container(
+          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+          decoration: BoxDecoration(
+            color: AppTheme.surface,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppTheme.muted.withOpacity(0.1), width: 1),
+          ),
+          child: ListTile(
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            leading: _buildChainIcon(wallet.chain),
+            title: Text(
+              wallet.displayName,
+              style: Theme.of(context).textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w500),
+            ),
+            subtitle: Text(
+              _truncateAddress(wallet.address),
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppTheme.muted),
+            ),
+            trailing: Text(
+              '${_formatBalance(balance)} ${token.symbol}',
+              style: Theme.of(context).textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w600),
+            ),
+          ),
+        );
+      },
+    );
+  }
+  
+  Widget _buildChainIcon(String chain) {
+    IconData iconData;
+    Color iconColor;
+
+    switch (chain.toUpperCase()) {
+      case 'BTC':
+        iconData = Icons.currency_bitcoin;
+        iconColor = const Color(0xFFF7931A);
+        break;
+      case 'ETH':
+        iconData = Icons.diamond_outlined;
+        iconColor = const Color(0xFF627EEA);
+        break;
+      case 'SOL':
+        iconData = Icons.circle;
+        iconColor = const Color(0xFF9945FF);
+        break;
+      default:
+        iconData = Icons.account_balance_wallet;
+        iconColor = AppTheme.primary;
+    }
+
+    return Container(
+      width: 44,
+      height: 44,
+      decoration: BoxDecoration(
+        color: iconColor.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Icon(iconData, color: iconColor, size: 24),
+    );
+  }
+  
+  String _truncateAddress(String address) {
+    if (address.length <= 16) return address;
+    return '${address.substring(0, 8)}...${address.substring(address.length - 6)}';
+  }
+  
+  String _formatBalance(double balance) {
+    if (balance == 0) return '0';
+    if (balance < 0.0001) return '<0.0001';
+    if (balance < 1) return balance.toStringAsFixed(4);
+    if (balance < 1000) return balance.toStringAsFixed(2);
+    return balance.toStringAsFixed(2);
   }
 }

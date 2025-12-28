@@ -9,13 +9,17 @@ class PortfolioRepository {
   final LocalStorageService _localStorage = LocalStorageService();
   final ApiService _apiService = ApiService();
   
-  Future<PortfolioData> getPortfolioData() async {
+  /// Get portfolio data with optional wallet holdings
+  /// walletHoldings is a map of token_id -> balance from tracked wallets
+  Future<PortfolioData> getPortfolioData({Map<int, double>? walletHoldings}) async {
     try {
       // Get watchlist from local storage
       final watchlistTokens = await _localStorage.getWatchlist();
       
+      print('=== Portfolio Data Flow ===');
+      print('Watchlist tokens: ${watchlistTokens.length}');
+      
       if (watchlistTokens.isEmpty) {
-        // Return empty portfolio if no tokens
         return PortfolioData(
           totalValue: 0,
           totalChange24h: 0,
@@ -25,21 +29,45 @@ class PortfolioRepository {
         );
       }
       
-      // Prepare token list for API - include current price from saved data
+      // Debug: print manual holdings from watchlist
+      print('=== Manual holdings from watchlist ===');
+      for (final token in watchlistTokens) {
+        print('${token.symbol} (id=${token.id}): manual holdings = ${token.holdings}');
+      }
+      
+      // Debug: print wallet holdings passed in
+      print('=== Wallet holdings passed in (by token ID) ===');
+      if (walletHoldings != null && walletHoldings.isNotEmpty) {
+        walletHoldings.forEach((tokenId, balance) {
+          print('Token ID $tokenId: wallet holdings = $balance');
+        });
+      } else {
+        print('No wallet holdings passed');
+      }
+      
+      // Prepare token list for API
+      // Merge manual holdings (stored on token) with wallet holdings (by token ID)
       final tokenListForApi = watchlistTokens.map((token) {
-        // Make sure we have the required fields for the API
+        // Start with manual holdings from the token
+        double manualHoldings = token.holdings ?? 0;
+        double walletBalance = 0;
+        
+        // Add wallet holdings by token ID
+        if (walletHoldings != null) {
+          walletBalance = walletHoldings[token.id] ?? 0;
+        }
+        
+        double totalHoldings = manualHoldings + walletBalance;
+        
+        print('${token.symbol} (id=${token.id}): manual=$manualHoldings + wallet=$walletBalance = total=$totalHoldings');
+        
         return {
           'token_id': token.id,
           'price': token.currentPrice,
-          'holdings': token.holdings ?? 0,
+          'holdings': totalHoldings,
           'exchange': token.exchange,
         };
       }).toList();
-      
-      print('Sending to API: ${tokenListForApi.length} tokens');
-      for (var token in tokenListForApi) {
-        print('Token: id=${token['token_id']}, holdings=${token['holdings']}');
-      }
       
       // Fetch latest prices from API
       final apiResponse = await _apiService.getPortfolioData(tokenListForApi);
@@ -49,7 +77,6 @@ class PortfolioRepository {
       // If API returns empty response, use cached data with saved tokens
       if (apiResponse.isEmpty) {
         print('Warning: API returned empty response for tokens');
-        // Return portfolio with saved tokens but no updated prices
         return PortfolioData(
           totalValue: 0,
           totalChange24h: 0,
@@ -68,9 +95,14 @@ class PortfolioRepository {
         savedTokenMap[token.id] = token;
       }
       
+      // Create a map for merged holdings
+      final mergedHoldingsMap = <int, double>{};
+      for (final tokenData in tokenListForApi) {
+        mergedHoldingsMap[tokenData['token_id'] as int] = tokenData['holdings'] as double;
+      }
+      
       for (final apiData in apiResponse) {
         final tokenId = apiData['token_id'] ?? apiData['id'];
-        print('Processing API response for token ID: $tokenId');
         
         // Find the matching saved token
         final savedToken = savedTokenMap[tokenId];
@@ -80,22 +112,24 @@ class PortfolioRepository {
           continue;
         }
         
-        // Create token from API response, preserving local holdings and saved data
+        // Use merged holdings (manual + wallet)
+        final holdings = mergedHoldingsMap[tokenId] ?? 0.0;
+        
+        print('Creating token ${savedToken.symbol} (id=$tokenId) with holdings: $holdings');
+        
+        // Create token from API response
         final token = Token.fromApiResponse({
           ...apiData,
-          'holdings': savedToken.holdings ?? apiData['holdings'],
+          'holdings': holdings,
           'exchange': savedToken.exchange ?? apiData['exchange'],
-          // Ensure we preserve the symbol and name from saved token if API doesn't provide them
           'ticker': apiData['ticker'] ?? savedToken.symbol,
           'name': apiData['name'] ?? savedToken.name,
-          // Preserve logo from saved token if API doesn't provide it
           'logo': apiData['logo'] ?? savedToken.logo,
         });
         
         // Only add tokens that have valid data
         if (token.symbol.isNotEmpty && token.name.isNotEmpty) {
           tokens.add(token);
-          print('Added token: ${token.symbol} (${token.name})');
         } else {
           print('Warning: Skipping token with empty symbol/name');
         }
@@ -106,7 +140,6 @@ class PortfolioRepository {
         final hasToken = tokens.any((t) => t.id == savedToken.id);
         if (!hasToken) {
           print('Warning: Token ${savedToken.symbol} (ID: ${savedToken.id}) was not returned by API');
-          // Add the saved token with its saved data (prices might be outdated)
           tokens.add(savedToken);
         }
       }
@@ -120,7 +153,6 @@ class PortfolioRepository {
       for (final token in tokens) {
         if (token.holdings != null && token.holdings! > 0) {
           totalValue += token.totalValue;
-          // Calculate the change in value based on percentage change
           final previousValue = token.totalValue / (1 + (token.percentChange24h / 100));
           totalChange24h += token.totalValue - previousValue;
         }
@@ -142,7 +174,6 @@ class PortfolioRepository {
       return portfolioData;
     } catch (e) {
       print('Error in getPortfolioData: $e');
-      // If API fails, try to return cached data
       final cached = await _localStorage.getCachedPortfolioData();
       if (cached != null) {
         return cached;
@@ -156,15 +187,11 @@ class PortfolioRepository {
     
     final searchResults = await _apiService.searchTokens(query);
     
-    // Convert search results to Token objects
     return searchResults.map((data) {
-      // Parse name to extract symbol - format is "Billy (Bitcoin) (BILLY)"
-      // The last part in parentheses is the symbol
       final fullName = data['name'] ?? '';
       String name = fullName;
       String symbol = '';
       
-      // Use regex to extract the last parentheses content as symbol
       final lastParenMatch = RegExp(r'(.+)\s*\(([^)]+)\)$').firstMatch(fullName);
       if (lastParenMatch != null) {
         name = lastParenMatch.group(1)!.trim();
@@ -176,7 +203,7 @@ class PortfolioRepository {
         symbol: symbol,
         name: name,
         logo: data['logo'],
-        currentPrice: 0, // Will be fetched when added to portfolio
+        currentPrice: 0,
         priceChange24h: 0,
         percentChange24h: 0,
         marketCap: (data['market_cap'] as num?)?.toDouble(),
@@ -193,6 +220,7 @@ class PortfolioRepository {
   }
   
   Future<void> updateHoldings(int tokenId, double holdings) async {
+    print('updateHoldings called: tokenId=$tokenId, holdings=$holdings');
     await _localStorage.updateTokenHoldings(tokenId, holdings);
   }
 }
