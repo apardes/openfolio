@@ -108,6 +108,8 @@ class _EditHoldingsDialogState extends State<EditHoldingsDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final hasWalletHoldings = widget.token.walletHoldings > 0;
+    
     return Dialog(
       backgroundColor: AppTheme.surface,
       shape: RoundedRectangleBorder(
@@ -148,12 +150,25 @@ class _EditHoldingsDialogState extends State<EditHoldingsDialog> {
             ),
             const SizedBox(height: 24),
             
-            // Holdings Input
-            Text(
-              'Holdings',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: AppTheme.muted,
-              ),
+            // Manual Holdings Input
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primary.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Icon(Icons.edit_note, color: AppTheme.primary, size: 16),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  'Manual Holdings',
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: AppTheme.muted,
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 8),
             TextField(
@@ -190,20 +205,76 @@ class _EditHoldingsDialogState extends State<EditHoldingsDialog> {
             ),
             const SizedBox(height: 8),
             Text(
-              'Enter 0 to move to watchlist only',
+              'Enter 0 to remove manual holdings',
               style: Theme.of(context).textTheme.labelSmall?.copyWith(
                 color: AppTheme.muted,
               ),
             ),
+            
+            // Wallet Holdings Info (if applicable)
+            if (hasWalletHoldings) ...[
+              const SizedBox(height: 20),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF9945FF).withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: const Color(0xFF9945FF).withOpacity(0.2),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.account_balance_wallet_outlined,
+                      color: const Color(0xFF9945FF),
+                      size: 20,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Tracked Wallet Balance',
+                            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                              color: AppTheme.muted,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            '${_formatNumberWithCommas(widget.token.walletHoldings)} ${widget.token.symbol}',
+                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Wallet balances are tracked automatically',
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: AppTheme.muted,
+                  fontStyle: FontStyle.italic,
+                ),
+              ),
+            ],
+            
             const SizedBox(height: 24),
             
             // Action Buttons
             Row(
               children: [
-                // Delete Button
-                if (widget.currentHoldings > 0 || 
-                    (_holdingsController.text.isNotEmpty && 
-                     CommaTextInputFormatter.parseValue(_holdingsController.text) == 0))
+                // Delete Button - only show if token is in watchlist (not wallet-only)
+                if (!widget.token.isWalletOnly && 
+                    (widget.currentHoldings > 0 || 
+                     (_holdingsController.text.isNotEmpty && 
+                      CommaTextInputFormatter.parseValue(_holdingsController.text) == 0)))
                   Expanded(
                     child: TextButton.icon(
                       onPressed: widget.onDelete,
@@ -216,7 +287,8 @@ class _EditHoldingsDialogState extends State<EditHoldingsDialog> {
                     ),
                   ),
                 
-                if (widget.currentHoldings > 0) const SizedBox(width: 16),
+                if (!widget.token.isWalletOnly && widget.currentHoldings > 0) 
+                  const SizedBox(width: 16),
                 
                 // Save Button
                 Expanded(

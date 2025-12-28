@@ -52,7 +52,7 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> with SingleTicker
       context: context,
       builder: (context) => EditHoldingsDialog(
         token: token,
-        currentHoldings: token.holdings ?? 0,
+        currentHoldings: token.manualHoldings,
         onSave: (holdings) async {
           await context.read<PortfolioProvider>().updateHoldings(token.id, holdings);
           if (mounted) {
@@ -93,7 +93,7 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> with SingleTicker
         final isPositive = token.percentChange24h >= 0;
         final changeColor = isPositive ? AppTheme.success : AppTheme.error;
         
-        // Get wallets for this token by token ID
+        // Get wallets that hold this token
         final walletsForToken = walletProvider.getWalletsForToken(token.id);
 
         return Scaffold(
@@ -101,53 +101,74 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> with SingleTicker
           appBar: AppBar(
             backgroundColor: AppTheme.background,
             title: Row(
-              mainAxisSize: MainAxisSize.min,
               children: [
                 CryptoLogo(
                   logoUrl: token.logo,
                   symbol: token.symbol,
-                  size: 28,
-                  borderRadius: 14,
+                  size: 32,
                 ),
-                const SizedBox(width: 8),
-                Flexible(
-                  child: Text(
-                    token.name,
-                    overflow: TextOverflow.ellipsis,
-                  ),
+                const SizedBox(width: 12),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      token.symbol,
+                      style: Theme.of(context).textTheme.displayMedium,
+                    ),
+                    Text(
+                      token.name,
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: AppTheme.muted,
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
             actions: [
-              IconButton(
-                icon: const Icon(Icons.delete_outline),
-                onPressed: () async {
-                  final confirm = await showDialog<bool>(
-                    context: context,
-                    builder: (context) => AlertDialog(
-                      backgroundColor: AppTheme.surface,
-                      title: const Text('Remove Token'),
-                      content: Text('Remove ${token.symbol} from your portfolio?'),
-                      actions: [
-                        TextButton(
-                          onPressed: () => Navigator.of(context).pop(false),
-                          child: const Text('Cancel'),
-                        ),
-                        TextButton(
-                          onPressed: () => Navigator.of(context).pop(true),
-                          style: TextButton.styleFrom(
-                            foregroundColor: AppTheme.error,
+              PopupMenuButton<String>(
+                icon: const Icon(Icons.more_vert),
+                onSelected: (value) async {
+                  if (value == 'remove') {
+                    final confirm = await showDialog<bool>(
+                      context: context,
+                      builder: (context) => AlertDialog(
+                        backgroundColor: AppTheme.surface,
+                        title: const Text('Remove Token'),
+                        content: Text('Remove ${token.symbol} from your portfolio?'),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.of(context).pop(false),
+                            child: const Text('Cancel'),
                           ),
-                          child: const Text('Remove'),
-                        ),
-                      ],
-                    ),
-                  );
-                  
-                  if (confirm == true && mounted) {
-                    await portfolioProvider.removeToken(token.id);
+                          TextButton(
+                            onPressed: () => Navigator.of(context).pop(true),
+                            style: TextButton.styleFrom(
+                              foregroundColor: AppTheme.error,
+                            ),
+                            child: const Text('Remove'),
+                          ),
+                        ],
+                      ),
+                    );
+                    
+                    if (confirm == true && mounted) {
+                      await portfolioProvider.removeToken(token.id);
+                    }
                   }
                 },
+                itemBuilder: (context) => [
+                  const PopupMenuItem(
+                    value: 'remove',
+                    child: Row(
+                      children: [
+                        Icon(Icons.delete_outline, color: AppTheme.error),
+                        SizedBox(width: 8),
+                        Text('Remove'),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -389,13 +410,17 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> with SingleTicker
   }
   
   Widget _buildHoldingsTab(Token token) {
-    return Center(
+    final hasAnyHoldings = token.holdings != null && token.holdings! > 0;
+    final hasManualHoldings = token.manualHoldings > 0;
+    final hasWalletHoldings = token.walletHoldings > 0;
+    
+    return SingleChildScrollView(
       child: Padding(
         padding: const EdgeInsets.all(24),
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            if (token.holdings == null || token.holdings == 0) ...[
+            if (!hasAnyHoldings) ...[
+              const SizedBox(height: 48),
               Icon(Icons.account_balance_wallet_outlined, size: 64, color: AppTheme.muted),
               const SizedBox(height: 16),
               Text('No holdings', style: Theme.of(context).textTheme.displayMedium),
@@ -415,7 +440,9 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> with SingleTicker
                 ),
               ),
             ] else ...[
+              // Total Holdings Card
               Container(
+                width: double.infinity,
                 padding: const EdgeInsets.all(24),
                 decoration: BoxDecoration(
                   color: AppTheme.surface,
@@ -426,7 +453,12 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> with SingleTicker
                   children: [
                     Icon(Icons.account_balance_wallet, size: 48, color: AppTheme.primary),
                     const SizedBox(height: 16),
-                    Text('Current Holdings', style: Theme.of(context).textTheme.labelSmall),
+                    Text(
+                      'Total Holdings',
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: AppTheme.muted,
+                      ),
+                    ),
                     const SizedBox(height: 8),
                     Text(
                       '${PriceFormatter.formatHoldings(token.holdings!)} ${token.symbol}',
@@ -443,20 +475,155 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> with SingleTicker
                   ],
                 ),
               ),
+              
               const SizedBox(height: 24),
-              ElevatedButton.icon(
-                onPressed: () => _showEditHoldingsDialog(token),
-                icon: const Icon(Icons.edit),
-                label: const Text('Edit Holdings'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.surface,
-                  foregroundColor: AppTheme.primary,
+              
+              // Holdings Breakdown
+              if (hasManualHoldings || hasWalletHoldings) ...[
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: AppTheme.surface,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Breakdown',
+                        style: Theme.of(context).textTheme.displaySmall?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      
+                      // Manual Holdings Row
+                      _buildHoldingsBreakdownRow(
+                        icon: Icons.edit_note,
+                        iconColor: AppTheme.primary,
+                        label: 'Manual',
+                        value: token.manualHoldings,
+                        symbol: token.symbol,
+                        price: token.currentPrice,
+                        isEditable: true,
+                        onEdit: () => _showEditHoldingsDialog(token),
+                      ),
+                      
+                      if (hasWalletHoldings) ...[
+                        const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 12),
+                          child: Divider(height: 1),
+                        ),
+                        
+                        // Wallet Holdings Row
+                        _buildHoldingsBreakdownRow(
+                          icon: Icons.account_balance_wallet_outlined,
+                          iconColor: const Color(0xFF9945FF),
+                          label: 'Tracked Wallets',
+                          value: token.walletHoldings,
+                          symbol: token.symbol,
+                          price: token.currentPrice,
+                          isEditable: false,
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
+              
+              const SizedBox(height: 24),
+              
+              // Edit Manual Holdings Button
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () => _showEditHoldingsDialog(token),
+                  icon: const Icon(Icons.edit),
+                  label: Text(hasManualHoldings ? 'Edit Manual Holdings' : 'Add Manual Holdings'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.surface,
+                    foregroundColor: AppTheme.primary,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                  ),
                 ),
               ),
             ],
           ],
         ),
       ),
+    );
+  }
+  
+  Widget _buildHoldingsBreakdownRow({
+    required IconData icon,
+    required Color iconColor,
+    required String label,
+    required double value,
+    required String symbol,
+    required double price,
+    required bool isEditable,
+    VoidCallback? onEdit,
+  }) {
+    final valueUsd = value * price;
+    
+    return Row(
+      children: [
+        Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            color: iconColor.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Icon(icon, color: iconColor, size: 20),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: AppTheme.muted,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                '${PriceFormatter.formatHoldings(value)} $symbol',
+                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Text(
+              PriceFormatter.formatPrice(valueUsd),
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: AppTheme.muted,
+              ),
+            ),
+            if (isEditable && onEdit != null) ...[
+              const SizedBox(height: 4),
+              GestureDetector(
+                onTap: onEdit,
+                child: Text(
+                  'Edit',
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: AppTheme.primary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ],
     );
   }
   

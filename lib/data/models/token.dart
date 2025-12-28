@@ -8,7 +8,9 @@ class Token {
   final double currentPrice;
   final double priceChange24h;
   final double percentChange24h;
-  final double? holdings;
+  final double? holdings; // Total holdings (manual + wallet) - kept for backward compatibility
+  final double manualHoldings; // Manual holdings only
+  final double walletHoldings; // Wallet holdings only
   final String? exchange;
   final double? marketCap;
   final double? volume24h;
@@ -26,6 +28,8 @@ class Token {
     required this.priceChange24h,
     required this.percentChange24h,
     this.holdings,
+    this.manualHoldings = 0,
+    this.walletHoldings = 0,
     this.exchange,
     this.marketCap,
     this.volume24h,
@@ -36,6 +40,12 @@ class Token {
   });
 
   double get totalValue => (holdings ?? 0) * currentPrice;
+  
+  /// Returns true if this token has any holdings (manual or wallet)
+  bool get hasHoldings => (holdings ?? 0) > 0;
+  
+  /// Returns true if this token only has wallet holdings (no manual)
+  bool get isWalletOnly => walletHoldings > 0 && manualHoldings == 0;
 
   factory Token.fromApiResponse(Map<String, dynamic> json) {
     final price = (json['price'] as num?)?.toDouble() ?? 0.0;
@@ -95,6 +105,10 @@ class Token {
           .toList();
     }
     
+    final manualHoldings = (json['manual_holdings'] as num?)?.toDouble() ?? 0;
+    final walletHoldings = (json['wallet_holdings'] as num?)?.toDouble() ?? 0;
+    final totalHoldings = (json['holdings'] as num?)?.toDouble() ?? (manualHoldings + walletHoldings);
+    
     return Token(
       id: json['id'] ?? json['token_id'],
       symbol: json['ticker'] ?? '',
@@ -103,7 +117,9 @@ class Token {
       currentPrice: price,
       priceChange24h: priceChange,
       percentChange24h: percentChange,
-      holdings: (json['holdings'] as num?)?.toDouble(),
+      holdings: totalHoldings,
+      manualHoldings: manualHoldings,
+      walletHoldings: walletHoldings,
       exchange: json['exchange'],
       marketCap: (json['market_cap'] as num?)?.toDouble(),
       volume24h: (json['volume'] as num?)?.toDouble(),
@@ -146,6 +162,8 @@ class Token {
       priceChange24h: (json['priceChange24h'] as num).toDouble(),
       percentChange24h: (json['percentChange24h'] as num).toDouble(),
       holdings: (json['holdings'] as num?)?.toDouble(),
+      manualHoldings: (json['manualHoldings'] as num?)?.toDouble() ?? 0,
+      walletHoldings: (json['walletHoldings'] as num?)?.toDouble() ?? 0,
       exchange: json['exchange'],
       marketCap: (json['marketCap'] as num?)?.toDouble(),
       volume24h: (json['volume24h'] as num?)?.toDouble(),
@@ -166,6 +184,8 @@ class Token {
       'priceChange24h': priceChange24h,
       'percentChange24h': percentChange24h,
       'holdings': holdings,
+      'manualHoldings': manualHoldings,
+      'walletHoldings': walletHoldings,
       'exchange': exchange,
       'marketCap': marketCap,
       'volume24h': volume24h,
@@ -183,6 +203,46 @@ class Token {
       'holdings': holdings ?? 0,
       'exchange': exchange,
     };
+  }
+  
+  Token copyWith({
+    int? id,
+    String? symbol,
+    String? name,
+    String? logo,
+    double? currentPrice,
+    double? priceChange24h,
+    double? percentChange24h,
+    double? holdings,
+    double? manualHoldings,
+    double? walletHoldings,
+    String? exchange,
+    double? marketCap,
+    double? volume24h,
+    double? volumeChange24h,
+    List<PricePoint>? hourlyPriceHistory,
+    List<PricePoint>? sevenDayPriceHistory,
+    List<PricePoint>? dailyPriceHistory,
+  }) {
+    return Token(
+      id: id ?? this.id,
+      symbol: symbol ?? this.symbol,
+      name: name ?? this.name,
+      logo: logo ?? this.logo,
+      currentPrice: currentPrice ?? this.currentPrice,
+      priceChange24h: priceChange24h ?? this.priceChange24h,
+      percentChange24h: percentChange24h ?? this.percentChange24h,
+      holdings: holdings ?? this.holdings,
+      manualHoldings: manualHoldings ?? this.manualHoldings,
+      walletHoldings: walletHoldings ?? this.walletHoldings,
+      exchange: exchange ?? this.exchange,
+      marketCap: marketCap ?? this.marketCap,
+      volume24h: volume24h ?? this.volume24h,
+      volumeChange24h: volumeChange24h ?? this.volumeChange24h,
+      hourlyPriceHistory: hourlyPriceHistory ?? this.hourlyPriceHistory,
+      sevenDayPriceHistory: sevenDayPriceHistory ?? this.sevenDayPriceHistory,
+      dailyPriceHistory: dailyPriceHistory ?? this.dailyPriceHistory,
+    );
   }
 }
 

@@ -11,23 +11,17 @@ class PortfolioRepository {
   
   /// Get portfolio data with optional wallet holdings
   /// walletHoldings is a map of token_id -> balance from tracked wallets
-  Future<PortfolioData> getPortfolioData({Map<int, double>? walletHoldings}) async {
+  /// walletTokenInfo is a map of token_id -> token info for tokens only in wallets
+  Future<PortfolioData> getPortfolioData({
+    Map<int, double>? walletHoldings,
+    Map<int, Map<String, dynamic>>? walletTokenInfo,
+  }) async {
     try {
       // Get watchlist from local storage
       final watchlistTokens = await _localStorage.getWatchlist();
       
       print('=== Portfolio Data Flow ===');
       print('Watchlist tokens: ${watchlistTokens.length}');
-      
-      if (watchlistTokens.isEmpty) {
-        return PortfolioData(
-          totalValue: 0,
-          totalChange24h: 0,
-          percentChange24h: 0,
-          tokens: [],
-          lastUpdated: DateTime.now(),
-        );
-      }
       
       // Debug: print manual holdings from watchlist
       print('=== Manual holdings from watchlist ===');
@@ -45,29 +39,70 @@ class PortfolioRepository {
         print('No wallet holdings passed');
       }
       
-      // Prepare token list for API
-      // Merge manual holdings (stored on token) with wallet holdings (by token ID)
-      final tokenListForApi = watchlistTokens.map((token) {
-        // Start with manual holdings from the token
-        double manualHoldings = token.holdings ?? 0;
-        double walletBalance = 0;
-        
-        // Add wallet holdings by token ID
-        if (walletHoldings != null) {
-          walletBalance = walletHoldings[token.id] ?? 0;
+      // Find wallet-only tokens (tokens in wallets but not in watchlist)
+      final watchlistIds = watchlistTokens.map((t) => t.id).toSet();
+      final walletOnlyTokenIds = <int>{};
+      if (walletHoldings != null) {
+        for (final tokenId in walletHoldings.keys) {
+          if (!watchlistIds.contains(tokenId)) {
+            walletOnlyTokenIds.add(tokenId);
+          }
         }
-        
+      }
+      
+      print('=== Wallet-only tokens (not in watchlist) ===');
+      print('Count: ${walletOnlyTokenIds.length}');
+      walletOnlyTokenIds.forEach((id) => print('  Token ID: $id'));
+      
+      // Prepare token list for API - combine watchlist + wallet-only tokens
+      final tokenListForApi = <Map<String, dynamic>>[];
+      final manualHoldingsMap = <int, double>{};
+      final walletHoldingsMap = <int, double>{};
+      
+      // Add watchlist tokens
+      for (final token in watchlistTokens) {
+        double manualHoldings = token.holdings ?? 0;
+        double walletBalance = walletHoldings?[token.id] ?? 0;
         double totalHoldings = manualHoldings + walletBalance;
+        
+        manualHoldingsMap[token.id] = manualHoldings;
+        walletHoldingsMap[token.id] = walletBalance;
         
         print('${token.symbol} (id=${token.id}): manual=$manualHoldings + wallet=$walletBalance = total=$totalHoldings');
         
-        return {
+        tokenListForApi.add({
           'token_id': token.id,
           'price': token.currentPrice,
           'holdings': totalHoldings,
           'exchange': token.exchange,
-        };
-      }).toList();
+        });
+      }
+      
+      // Add wallet-only tokens
+      for (final tokenId in walletOnlyTokenIds) {
+        final walletBalance = walletHoldings![tokenId]!;
+        manualHoldingsMap[tokenId] = 0;
+        walletHoldingsMap[tokenId] = walletBalance;
+        
+        print('Wallet-only token (id=$tokenId): wallet=$walletBalance');
+        
+        tokenListForApi.add({
+          'token_id': tokenId,
+          'price': 0, // Will be fetched from API
+          'holdings': walletBalance,
+          'exchange': null,
+        });
+      }
+      
+      if (tokenListForApi.isEmpty) {
+        return PortfolioData(
+          totalValue: 0,
+          totalChange24h: 0,
+          percentChange24h: 0,
+          tokens: [],
+          lastUpdated: DateTime.now(),
+        );
+      }
       
       // Fetch latest prices from API
       final apiResponse = await _apiService.getPortfolioData(tokenListForApi);
@@ -95,36 +130,28 @@ class PortfolioRepository {
         savedTokenMap[token.id] = token;
       }
       
-      // Create a map for merged holdings
-      final mergedHoldingsMap = <int, double>{};
-      for (final tokenData in tokenListForApi) {
-        mergedHoldingsMap[tokenData['token_id'] as int] = tokenData['holdings'] as double;
-      }
-      
       for (final apiData in apiResponse) {
         final tokenId = apiData['token_id'] ?? apiData['id'];
         
-        // Find the matching saved token
+        final manualHoldings = manualHoldingsMap[tokenId] ?? 0.0;
+        final walletBalance = walletHoldingsMap[tokenId] ?? 0.0;
+        final totalHoldings = manualHoldings + walletBalance;
+        
+        // Find the matching saved token (may be null for wallet-only tokens)
         final savedToken = savedTokenMap[tokenId];
         
-        if (savedToken == null) {
-          print('Warning: No saved token found for ID $tokenId, skipping...');
-          continue;
-        }
+        print('Creating token (id=$tokenId) with manual=$manualHoldings, wallet=$walletBalance, total=$totalHoldings');
         
-        // Use merged holdings (manual + wallet)
-        final holdings = mergedHoldingsMap[tokenId] ?? 0.0;
-        
-        print('Creating token ${savedToken.symbol} (id=$tokenId) with holdings: $holdings');
-        
-        // Create token from API response
+        // Create token from API response with separate holdings
         final token = Token.fromApiResponse({
           ...apiData,
-          'holdings': holdings,
-          'exchange': savedToken.exchange ?? apiData['exchange'],
-          'ticker': apiData['ticker'] ?? savedToken.symbol,
-          'name': apiData['name'] ?? savedToken.name,
-          'logo': apiData['logo'] ?? savedToken.logo,
+          'holdings': totalHoldings,
+          'manual_holdings': manualHoldings,
+          'wallet_holdings': walletBalance,
+          'exchange': savedToken?.exchange ?? apiData['exchange'],
+          'ticker': apiData['ticker'] ?? savedToken?.symbol ?? '',
+          'name': apiData['name'] ?? savedToken?.name ?? '',
+          'logo': apiData['logo'] ?? savedToken?.logo,
         });
         
         // Only add tokens that have valid data
