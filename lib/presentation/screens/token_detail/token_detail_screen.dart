@@ -677,7 +677,7 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> with SingleTicker
               style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppTheme.muted),
             ),
             trailing: Text(
-              '${_formatBalance(balance)} ${token.symbol}',
+              '${PriceFormatter.formatHoldings(balance)} ${token.symbol}',
               style: Theme.of(context).textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w600),
             ),
           ),
@@ -722,13 +722,5 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> with SingleTicker
   String _truncateAddress(String address) {
     if (address.length <= 16) return address;
     return '${address.substring(0, 8)}...${address.substring(address.length - 6)}';
-  }
-  
-  String _formatBalance(double balance) {
-    if (balance == 0) return '0';
-    if (balance < 0.0001) return '<0.0001';
-    if (balance < 1) return balance.toStringAsFixed(4);
-    if (balance < 1000) return balance.toStringAsFixed(2);
-    return balance.toStringAsFixed(2);
   }
 }
