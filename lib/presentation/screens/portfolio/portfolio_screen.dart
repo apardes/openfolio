@@ -266,17 +266,23 @@ class PortfolioScreen extends StatelessWidget {
           
           // Price column - right aligned
           SizedBox(
-            width: 80,
-            child: Text(
-              'Price',
-              style: TextStyle(
-                fontSize: 10,
-                color: AppTheme.muted,
-                fontWeight: FontWeight.w500,
+            width: 120,
+            child: Padding(
+              padding: const EdgeInsets.only(right: 12),
+              child: Text(
+                'Price',
+                style: TextStyle(
+                  fontSize: 10,
+                  color: AppTheme.muted,
+                  fontWeight: FontWeight.w500,
+                ),
+                textAlign: TextAlign.right,
               ),
-              textAlign: TextAlign.right,
             ),
           ),
+          
+          // Alert button spacer (matches token_list_item.dart)
+          const SizedBox(width: 48),
         ],
       ),
     );
