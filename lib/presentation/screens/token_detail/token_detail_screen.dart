@@ -38,7 +38,7 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> with SingleTicker
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 4, vsync: this);
+    _tabController = TabController(length: 3, vsync: this);
   }
 
   @override
@@ -169,7 +169,7 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> with SingleTicker
                   indicatorColor: AppTheme.primary,
                   tabs: const [
                     Tab(text: 'Details'),
-                    Tab(text: 'Alerts'),
+                    //Tab(text: 'Alerts'),
                     Tab(text: 'Holdings'),
                     Tab(text: 'Wallets'),
                   ],
@@ -181,7 +181,7 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> with SingleTicker
                   physics: const NeverScrollableScrollPhysics(),
                   children: [
                     _buildDetailsTab(token, isPositive, changeColor),
-                    _buildAlertsTab(token),
+                    //_buildAlertsTab(token),
                     _buildHoldingsTab(token),
                     _buildWalletsTab(token, walletsForToken),
                   ],

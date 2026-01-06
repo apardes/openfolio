@@ -282,7 +282,7 @@ class PortfolioScreen extends StatelessWidget {
           ),
           
           // Alert button spacer (matches token_list_item.dart)
-          const SizedBox(width: 48),
+          //const SizedBox(width: 48),
         ],
       ),
     );

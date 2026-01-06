@@ -10,14 +10,14 @@ class TokenListItem extends StatelessWidget {
   final Token token;
   final bool showHoldings;
   final VoidCallback onTap;
-  final VoidCallback onAlertTap;
+  final VoidCallback? onAlertTap;
 
   const TokenListItem({
     super.key,
     required this.token,
     required this.showHoldings,
     required this.onTap,
-    required this.onAlertTap,
+    this.onAlertTap,
   });
 
   @override
@@ -147,23 +147,23 @@ class TokenListItem extends StatelessWidget {
             ),
             
             // Alert button
-            SizedBox(
-              width: 48,
-              child: IconButton(
-                icon: Icon(
-                  Icons.notifications_none,
-                  color: AppTheme.muted,
-                  size: 18,
-                ),
-                onPressed: onAlertTap,
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(
-                  minWidth: 32,
-                  minHeight: 32,
-                ),
-                visualDensity: VisualDensity.compact,
-              ),
-            ),
+            //SizedBox(
+            //  width: 48,
+            //  child: IconButton(
+            //    icon: Icon(
+            //      Icons.notifications_none,
+            //      color: AppTheme.muted,
+            //      size: 18,
+            //    ),
+            //    onPressed: onAlertTap,
+            //    padding: EdgeInsets.zero,
+            //    constraints: const BoxConstraints(
+            //      minWidth: 32,
+            //      minHeight: 32,
+            //    ),
+            //    visualDensity: VisualDensity.compact,
+            //  ),
+            //),
           ],
         ),
       ),
