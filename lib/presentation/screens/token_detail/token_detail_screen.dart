@@ -54,7 +54,27 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> with SingleTicker
         token: token,
         currentHoldings: token.manualHoldings,
         onSave: (holdings) async {
-          await context.read<PortfolioProvider>().updateHoldings(token.id, holdings);
+          final provider = context.read<PortfolioProvider>();
+          
+          // If wallet-only token, add to watchlist first (updateHoldings only works for watchlist tokens)
+          if (token.isWalletOnly) {
+            final tokenToAdd = Token(
+              id: token.id,
+              symbol: token.symbol,
+              name: token.name,
+              logo: token.logo,
+              currentPrice: token.currentPrice,
+              priceChange24h: token.priceChange24h,
+              percentChange24h: token.percentChange24h,
+              holdings: holdings,
+              marketCap: token.marketCap,
+              volume24h: token.volume24h,
+            );
+            await provider.addToken(tokenToAdd);
+          } else {
+            await provider.updateHoldings(token.id, holdings);
+          }
+          
           if (mounted) {
             Navigator.of(context).pop();
           }
