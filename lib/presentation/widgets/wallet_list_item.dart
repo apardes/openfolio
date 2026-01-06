@@ -39,10 +39,12 @@ class WalletListItem extends StatelessWidget {
           ),
         ),
         subtitle: Text(
-          wallet.chain.toUpperCase(),
+          _truncateAddress(wallet.address),
           style: Theme.of(context).textTheme.bodySmall?.copyWith(
             color: AppTheme.muted,
           ),
+          overflow: TextOverflow.ellipsis,
+          maxLines: 1,
         ),
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
@@ -118,6 +120,11 @@ class WalletListItem extends StatelessWidget {
         size: 24,
       ),
     );
+  }
+
+  String _truncateAddress(String address) {
+    if (address.length <= 16) return address;
+    return '${address.substring(0, 8)}...${address.substring(address.length - 6)}';
   }
 
   String _formatBalance(double balance) {
