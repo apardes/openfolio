@@ -40,17 +40,18 @@ class PortfolioRepository {
       }
       
       // Find wallet-only tokens (tokens in wallets but not in watchlist)
+      // Only include if they have a balance > 0
       final watchlistIds = watchlistTokens.map((t) => t.id).toSet();
       final walletOnlyTokenIds = <int>{};
       if (walletHoldings != null) {
         for (final tokenId in walletHoldings.keys) {
-          if (!watchlistIds.contains(tokenId)) {
+          if (!watchlistIds.contains(tokenId) && walletHoldings[tokenId]! > 0) {
             walletOnlyTokenIds.add(tokenId);
           }
         }
       }
       
-      print('=== Wallet-only tokens (not in watchlist) ===');
+      print('=== Wallet-only tokens (not in watchlist, balance > 0) ===');
       print('Count: ${walletOnlyTokenIds.length}');
       walletOnlyTokenIds.forEach((id) => print('  Token ID: $id'));
       
@@ -78,7 +79,7 @@ class PortfolioRepository {
         });
       }
       
-      // Add wallet-only tokens
+      // Add wallet-only tokens (only those with balance > 0)
       for (final tokenId in walletOnlyTokenIds) {
         final walletBalance = walletHoldings![tokenId]!;
         manualHoldingsMap[tokenId] = 0;

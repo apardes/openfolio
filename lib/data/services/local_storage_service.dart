@@ -51,6 +51,11 @@ class LocalStorageService {
     }
   }
   
+  Future<void> clearCachedPortfolioData() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_portfolioKey);
+  }
+  
   Future<void> clearAll() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_watchlistKey);
@@ -77,12 +82,20 @@ class LocalStorageService {
   }
   
   Future<void> removeToken(int tokenId) async {
+    print('LocalStorageService.removeToken called with tokenId: $tokenId');
     final tokens = await getWatchlist();
+    print('Current watchlist count: ${tokens.length}');
+    print('Token IDs in watchlist: ${tokens.map((t) => t.id).toList()}');
     tokens.removeWhere((t) => t.id == tokenId);
+    print('After removal, watchlist count: ${tokens.length}');
     await saveWatchlist(tokens);
     
     // Also remove manual holdings for this token
     await removeManualHoldings(tokenId);
+    
+    // Clear cached portfolio data so it doesn't return stale data
+    await clearCachedPortfolioData();
+    print('Token removal complete');
   }
   
   Future<void> updateTokenHoldings(int tokenId, double holdings) async {

@@ -62,7 +62,8 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> with SingleTicker
         onDelete: () async {
           await context.read<PortfolioProvider>().removeToken(token.id);
           if (mounted) {
-            Navigator.of(context).pop();
+            Navigator.of(context).pop(); // Close dialog
+            Navigator.of(context).pop(); // Go back to portfolio
           }
         },
       ),
@@ -126,49 +127,16 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> with SingleTicker
               ],
             ),
             actions: [
-              PopupMenuButton<String>(
-                icon: const Icon(Icons.more_vert),
-                onSelected: (value) async {
-                  if (value == 'remove') {
-                    final confirm = await showDialog<bool>(
-                      context: context,
-                      builder: (context) => AlertDialog(
-                        backgroundColor: AppTheme.surface,
-                        title: const Text('Remove Token'),
-                        content: Text('Remove ${token.symbol} from your portfolio?'),
-                        actions: [
-                          TextButton(
-                            onPressed: () => Navigator.of(context).pop(false),
-                            child: const Text('Cancel'),
-                          ),
-                          TextButton(
-                            onPressed: () => Navigator.of(context).pop(true),
-                            style: TextButton.styleFrom(
-                              foregroundColor: AppTheme.error,
-                            ),
-                            child: const Text('Remove'),
-                          ),
-                        ],
-                      ),
-                    );
-                    
-                    if (confirm == true && mounted) {
-                      await portfolioProvider.removeToken(token.id);
-                    }
+              IconButton(
+                icon: const Icon(Icons.delete_outline),
+                onPressed: () async {
+                  print('Removing token: ${token.symbol} (ID: ${token.id})');
+                  await portfolioProvider.removeToken(token.id);
+                  print('Token removed, popping screen');
+                  if (mounted) {
+                    Navigator.of(context).pop();
                   }
                 },
-                itemBuilder: (context) => [
-                  const PopupMenuItem(
-                    value: 'remove',
-                    child: Row(
-                      children: [
-                        Icon(Icons.delete_outline, color: AppTheme.error),
-                        SizedBox(width: 8),
-                        Text('Remove'),
-                      ],
-                    ),
-                  ),
-                ],
               ),
             ],
           ),
