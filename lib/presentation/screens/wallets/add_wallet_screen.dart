@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../providers/wallet_provider.dart';
+import '../../widgets/chain_icon.dart';
 
 class AddWalletScreen extends StatefulWidget {
   const AddWalletScreen({super.key});
@@ -16,7 +17,7 @@ class _AddWalletScreenState extends State<AddWalletScreen> {
   final TextEditingController _addressController = TextEditingController();
   final TextEditingController _nameController = TextEditingController();
   final FocusNode _addressFocus = FocusNode();
-  String _selectedChain = 'SOL';
+  String? _selectedChain;
   bool _isLoading = false;
 
   final List<Map<String, dynamic>> _chains = [
@@ -40,6 +41,13 @@ class _AddWalletScreenState extends State<AddWalletScreen> {
   }
 
   Future<void> _addWallet() async {
+    if (_selectedChain == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select a chain')),
+      );
+      return;
+    }
+
     final address = _addressController.text.trim();
     if (address.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -53,7 +61,7 @@ class _AddWalletScreenState extends State<AddWalletScreen> {
     try {
       await context.read<WalletProvider>().addWallet(
         address,
-        _selectedChain,
+        _selectedChain!,
         name: _nameController.text.trim().isEmpty 
             ? null 
             : _nameController.text.trim(),
@@ -132,14 +140,24 @@ class _AddWalletScreenState extends State<AddWalletScreen> {
                             width: isSelected ? 2 : 1,
                           ),
                         ),
-                        child: Center(
-                          child: Text(
-                            chain['name'] as String,
-                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-                              color: isSelected ? chain['color'] as Color : AppTheme.muted,
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            ChainIcon(
+                              chain: chain['id'] as String,
+                              size: 40,
+                              iconSize: 24,
+                              borderRadius: 10,
                             ),
-                          ),
+                            const SizedBox(height: 8),
+                            Text(
+                              chain['name'] as String,
+                              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                                color: isSelected ? chain['color'] as Color : AppTheme.muted,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ),

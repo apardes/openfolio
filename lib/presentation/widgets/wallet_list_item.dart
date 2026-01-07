@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import '../../core/theme/app_theme.dart';
 import '../../data/models/wallet.dart';
+import 'chain_icon.dart';
 
 class WalletListItem extends StatelessWidget {
   final Wallet wallet;
@@ -31,7 +32,7 @@ class WalletListItem extends StatelessWidget {
       child: ListTile(
         onTap: onTap,
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        leading: _buildChainIcon(),
+        leading: ChainIcon(chain: wallet.chain),
         title: Text(
           wallet.displayName,
           style: Theme.of(context).textTheme.bodyLarge?.copyWith(
@@ -81,43 +82,6 @@ class WalletListItem extends StatelessWidget {
             ],
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildChainIcon() {
-    IconData iconData;
-    Color iconColor;
-
-    switch (wallet.chain.toUpperCase()) {
-      case 'BTC':
-        iconData = Icons.currency_bitcoin;
-        iconColor = const Color(0xFFF7931A);
-        break;
-      case 'ETH':
-        iconData = Icons.diamond_outlined;
-        iconColor = const Color(0xFF627EEA);
-        break;
-      case 'SOL':
-        iconData = Icons.circle;
-        iconColor = const Color(0xFF9945FF);
-        break;
-      default:
-        iconData = Icons.account_balance_wallet;
-        iconColor = AppTheme.primary;
-    }
-
-    return Container(
-      width: 44,
-      height: 44,
-      decoration: BoxDecoration(
-        color: iconColor.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Icon(
-        iconData,
-        color: iconColor,
-        size: 24,
       ),
     );
   }

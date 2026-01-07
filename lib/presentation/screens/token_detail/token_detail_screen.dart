@@ -11,6 +11,7 @@ import '../../providers/wallet_provider.dart';
 import '../../widgets/price_chart.dart';
 import '../../widgets/crypto_logo.dart';
 import 'edit_holdings_dialog.dart';
+import '../../widgets/chain_icon.dart';
 
 class TokenDetailScreen extends StatefulWidget {
   final int tokenId;
@@ -667,7 +668,7 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> with SingleTicker
           ),
           child: ListTile(
             contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            leading: _buildChainIcon(wallet.chain),
+            leading: ChainIcon(chain: wallet.chain),
             title: Text(
               wallet.displayName,
               style: Theme.of(context).textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w500),
@@ -683,39 +684,6 @@ class _TokenDetailScreenState extends State<TokenDetailScreen> with SingleTicker
           ),
         );
       },
-    );
-  }
-  
-  Widget _buildChainIcon(String chain) {
-    IconData iconData;
-    Color iconColor;
-
-    switch (chain.toUpperCase()) {
-      case 'BTC':
-        iconData = Icons.currency_bitcoin;
-        iconColor = const Color(0xFFF7931A);
-        break;
-      case 'ETH':
-        iconData = Icons.diamond_outlined;
-        iconColor = const Color(0xFF627EEA);
-        break;
-      case 'SOL':
-        iconData = Icons.circle;
-        iconColor = const Color(0xFF9945FF);
-        break;
-      default:
-        iconData = Icons.account_balance_wallet;
-        iconColor = AppTheme.primary;
-    }
-
-    return Container(
-      width: 44,
-      height: 44,
-      decoration: BoxDecoration(
-        color: iconColor.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Icon(iconData, color: iconColor, size: 24),
     );
   }
   
