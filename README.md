@@ -17,8 +17,7 @@ Openfolio is an open-source cryptocurrency portfolio tracker inspired by the ori
 - **Watchlist**: Monitor tokens without adding holdings
 - **Search Functionality**: Easily find and add new tokens
 - **Market Statistics**: View market cap, volume, and volume changes
-- **Dark Theme**: Beautiful dark UI optimized for OLED displays
-- **Offline Support**: Cached data for offline viewing
+
 
 ## 🚀 Getting Started
 
@@ -76,21 +75,6 @@ lib/
     └── widgets/     # Reusable widgets
 ```
 
-### Key Technologies
-
-- **State Management**: Provider
-- **Networking**: Dio
-- **Local Storage**: SharedPreferences
-- **Charts**: fl_chart
-- **Image Caching**: cached_network_image
-
-## 📸 Screenshots
-
-<p align="center">
-  <img src="screenshots/portfolio.png" width="250" alt="Portfolio Screen">
-  <img src="screenshots/token_detail.png" width="250" alt="Token Detail">
-  <img src="screenshots/search.png" width="250" alt="Search Screen">
-</p>
 
 ## 🔧 Configuration
 
