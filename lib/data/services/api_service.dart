@@ -1,9 +1,11 @@
 // lib/data/services/api_service.dart
 
 import 'dart:convert';
+import 'package:crypto/crypto.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import '../../config/api_config.dart';
+import '../../config/secrets.dart';
 
 class ApiService {
   late final Dio _dio;
@@ -17,6 +19,27 @@ class ApiService {
         receiveTimeout: const Duration(seconds: 10),
       ),
     );
+    
+    // Add HMAC signing interceptor (must be first to sign before other interceptors run)
+    if (hmacEnabled) {
+      _dio.interceptors.add(
+        InterceptorsWrapper(
+          onRequest: (options, handler) {
+            final timestamp = (DateTime.now().millisecondsSinceEpoch ~/ 1000).toString();
+            final body = options.data != null ? jsonEncode(options.data) : '';
+            final message = '$timestamp|${options.method}|${options.path}|$body';
+            
+            final hmacSha256 = Hmac(sha256, utf8.encode(hmacSecret));
+            final signature = hmacSha256.convert(utf8.encode(message)).toString();
+            
+            options.headers['X-Timestamp'] = timestamp;
+            options.headers['X-Signature'] = signature;
+            
+            handler.next(options);
+          },
+        ),
+      );
+    }
     
     // Only add logging interceptor in debug mode
     if (kDebugMode) {
