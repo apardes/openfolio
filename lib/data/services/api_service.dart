@@ -1,15 +1,48 @@
 // lib/data/services/api_service.dart
 
 import 'dart:convert';
+import 'dart:io' show Platform;
 import 'package:crypto/crypto.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
+import 'package:package_info_plus/package_info_plus.dart';
+import 'package:uuid/uuid.dart';
 import '../../config/api_config.dart';
 import '../../config/secrets.dart';
+import 'local_storage_service.dart';
 
 class ApiService {
   late final Dio _dio;
-  
+
+  // Telemetry values - initialized once at app startup
+  static String? _deviceId;
+  static String? _appVersion;
+  static String? _platform;
+  static bool _telemetryInitialized = false;
+
+  /// Initialize telemetry values (call once at app startup)
+  static Future<void> initTelemetry() async {
+    if (_telemetryInitialized) return;
+
+    final localStorage = LocalStorageService();
+
+    // Get or create device ID
+    _deviceId = await localStorage.getDeviceId();
+    if (_deviceId == null) {
+      _deviceId = const Uuid().v4();
+      await localStorage.setDeviceId(_deviceId!);
+    }
+
+    // Get app version
+    final packageInfo = await PackageInfo.fromPlatform();
+    _appVersion = packageInfo.version;
+
+    // Get platform
+    _platform = Platform.isIOS ? 'ios' : 'android';
+
+    _telemetryInitialized = true;
+  }
+
   ApiService() {
     _dio = Dio(
       BaseOptions(
@@ -19,7 +52,21 @@ class ApiService {
         receiveTimeout: const Duration(seconds: 10),
       ),
     );
-    
+
+    // Add telemetry headers to all requests
+    _dio.interceptors.add(
+      InterceptorsWrapper(
+        onRequest: (options, handler) {
+          if (_telemetryInitialized) {
+            options.headers['X-Device-ID'] = _deviceId;
+            options.headers['X-App-Version'] = _appVersion;
+            options.headers['X-Platform'] = _platform;
+          }
+          handler.next(options);
+        },
+      ),
+    );
+
     // Add HMAC signing interceptor (must be first to sign before other interceptors run)
     if (hmacEnabled) {
       _dio.interceptors.add(

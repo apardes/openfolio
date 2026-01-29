@@ -11,6 +11,19 @@ class LocalStorageService {
   static const String _portfolioKey = 'portfolio_data';
   static const String _walletsKey = 'wallets';
   static const String _manualHoldingsKey = 'manual_holdings';
+  static const String _deviceIdKey = 'device_id';
+
+  // Device ID methods (for telemetry)
+
+  Future<String?> getDeviceId() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_deviceIdKey);
+  }
+
+  Future<void> setDeviceId(String deviceId) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_deviceIdKey, deviceId);
+  }
   
   // Token/Watchlist methods
   

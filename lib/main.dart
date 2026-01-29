@@ -3,13 +3,17 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'core/theme/app_theme.dart';
+import 'data/services/api_service.dart';
 import 'presentation/providers/portfolio_provider.dart';
 import 'presentation/providers/wallet_provider.dart';
 import 'presentation/screens/portfolio/portfolio_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
+
+  // Initialize telemetry (device ID, app version, platform)
+  await ApiService.initTelemetry();
+
   // Set system UI overlay style
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(

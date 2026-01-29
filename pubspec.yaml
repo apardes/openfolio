@@ -1,7 +1,7 @@
 name: openfolio
 description: Open source crypto portfolio tracker inspired by Blockfolio
 publish_to: 'none'
-version: 1.0.0+8
+version: 1.0.1+1
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
@@ -27,6 +27,8 @@ dependencies:
   cached_network_image: ^3.3.1
   shimmer: ^3.0.0
   crypto: ^3.0.6
+  uuid: ^4.2.1
+  package_info_plus: ^8.0.0
   
   # UI Enhancements
   flutter_svg: ^2.0.9
